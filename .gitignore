@@ -1,0 +1,8 @@
+.zig-cache/
+zig-out/
+
+# Fetched dependency packages (ZIG_GLOBAL_CACHE_DIR pointed here).
+zig-pkg/
+
+# Agent proposal variants (claudecode.nvim).
+.claude-variants/
