@@ -4,11 +4,23 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    // Temporary zglfw module
+    // glfw is the only implemented backend, so this defaults on. Turning it off
+    // selects the native backend for the target OS, which is an empty file
+    // today and fails to compile by design.
+    const force_glfw = b.option(bool, "force-glfw", "Use the glfw backend instead of the native one") orelse true;
+    const build_options = b.addOptions();
+    build_options.addOption(bool, "force_glfw", force_glfw);
+
+    // Temporary zglfw module. X11 is off by decision, not by default: it is not
+    // a supported window system, so linking it would only add a path nothing
+    // can reach.
     const zglfw = b.dependency("zglfw", .{ .target = target, .optimize = optimize, .x11 = false, .wayland = true });
     const mod = b.addModule("lenore-platform", .{
         .root_source_file = b.path("src/root.zig"),
-        .imports = &.{.{ .name = "zglfw", .module = zglfw.module("root") }},
+        .imports = &.{
+            .{ .name = "zglfw", .module = zglfw.module("root") },
+            .{ .name = "build_options", .module = build_options.createModule() },
+        },
         .target = target,
         .optimize = optimize,
     });
@@ -16,7 +28,7 @@ pub fn build(b: *std.Build) void {
 
     const unit_tests = b.addTest(.{
         .root_module = b.createModule(.{
-            .root_source_file = b.path("tests/root.zig"),
+            .root_source_file = testRoot(b, "tests"),
             .imports = &.{.{ .name = "lenore-platform", .module = mod }},
             .target = target,
             .optimize = optimize,
@@ -24,4 +36,97 @@ pub fn build(b: *std.Build) void {
     });
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&b.addRunArtifact(unit_tests).step);
+
+    // addTest collects test blocks from the root module of its compilation only.
+    // The suite above imports lenore-platform rather than being it, so a `test`
+    // written beside the code in src/ would never run and would stay green
+    // forever. This second binary is that module.
+    mod.linkLibrary(zglfw.artifact("glfw"));
+    const module_tests = b.addTest(.{ .root_module = mod });
+    test_step.dependOn(&b.addRunArtifact(module_tests).step);
+
+    // Examples demonstrate this module on its own, with no umbrella and no other
+    // module. They are also what actually compiles the backend: the test root
+    // reaches only what a test calls, and nothing calls Platform.init.
+    const examples_step = b.step("examples", "Build every example");
+    b.getInstallStep().dependOn(examples_step);
+    for (zigFilesIn(b, "examples")) |name| {
+        const stem = name[0 .. name.len - ".zig".len];
+        const exe = b.addExecutable(.{
+            .name = stem,
+            .root_module = b.createModule(.{
+                .root_source_file = b.path(b.fmt("examples/{s}", .{name})),
+                .imports = &.{.{ .name = "lenore-platform", .module = mod }},
+                .target = target,
+                .optimize = optimize,
+            }),
+        });
+        examples_step.dependOn(&b.addInstallArtifact(exe, .{}).step);
+
+        // Deliberately not depending on examples_step: running one example must
+        // not rebuild the others. addRunArtifact already depends on this exe.
+        const run = b.addRunArtifact(exe);
+        if (b.args) |args| run.addArgs(args);
+        b.step(b.fmt("run-{s}", .{stem}), b.fmt("Run the {s} example", .{stem}))
+            .dependOn(&run.step);
+    }
+}
+
+/// Sorted names of the `.zig` files directly in `dir_path`, or nothing if the
+/// directory does not exist.
+///
+/// Directory order is not stable across filesystems, and the generated test root
+/// below is part of a cache key, so the order is pinned here rather than left to
+/// the reader of either caller.
+fn zigFilesIn(b: *std.Build, dir_path: []const u8) [][]const u8 {
+    var names: std.ArrayList([]const u8) = .empty;
+
+    // The filesystem is behind std.Io in 0.16, and the build graph carries the
+    // Io the rest of the build already uses.
+    const io = b.graph.io;
+    var dir = b.build_root.handle.openDir(io, dir_path, .{ .iterate = true }) catch |err| switch (err) {
+        // A module without the directory yet is normal. Anything else is a
+        // broken checkout or wrong permissions, and silently building nothing
+        // would look like a suite that passes.
+        error.FileNotFound => return names.items,
+        else => std.debug.panic("cannot open {s}/: {t}", .{ dir_path, err }),
+    };
+    defer dir.close(io);
+
+    var walker = dir.iterate();
+    while (walker.next(io) catch @panic("cannot list the directory")) |entry| {
+        if (entry.kind != .file) continue;
+        if (!std.mem.endsWith(u8, entry.name, ".zig")) continue;
+        names.append(b.allocator, b.dupe(entry.name)) catch @panic("OOM");
+    }
+
+    std.mem.sort([]const u8, names.items, {}, struct {
+        fn lessThan(_: void, a: []const u8, b_: []const u8) bool {
+            return std.mem.order(u8, a, b_) == .lt;
+        }
+    }.lessThan);
+    return names.items;
+}
+
+/// Generates the test root by listing `dir_path`, so a new test file is picked
+/// up by existing.
+///
+/// This cannot be done at comptime: `@import` takes a string literal and there
+/// is no filesystem at comptime. The build script is the earliest place that can
+/// see the directory, so the root is generated here rather than maintained by
+/// hand. Zig analyses lazily, and a test file nobody imports is silently not
+/// run, so a forgotten registration is a suite that goes green without it.
+fn testRoot(b: *std.Build, dir_path: []const u8) std.Build.LazyPath {
+    var source: std.ArrayList(u8) = .empty;
+    source.appendSlice(b.allocator, "// Generated by build.zig from the test directory. Do not edit.\ntest {\n") catch @panic("OOM");
+    for (zigFilesIn(b, dir_path)) |name| {
+        source.print(b.allocator, "    _ = @import(\"{s}/{s}\");\n", .{ dir_path, name }) catch @panic("OOM");
+    }
+    source.appendSlice(b.allocator, "}\n") catch @panic("OOM");
+
+    // The generated root sits beside a copy of the directory, so its imports
+    // resolve relative to itself.
+    const wf = b.addWriteFiles();
+    _ = wf.addCopyDirectory(b.path(dir_path), dir_path, .{});
+    return wf.add("test_root.zig", source.items);
 }
