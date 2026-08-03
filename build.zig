@@ -48,28 +48,6 @@ pub fn build(b: *std.Build) void {
     // Examples demonstrate this module on its own, with no umbrella and no other
     // module. They are also what actually compiles the backend: the test root
     // reaches only what a test calls, and nothing calls Platform.init.
-    const examples_step = b.step("examples", "Build every example");
-    b.getInstallStep().dependOn(examples_step);
-    for (zigFilesIn(b, "examples")) |name| {
-        const stem = name[0 .. name.len - ".zig".len];
-        const exe = b.addExecutable(.{
-            .name = stem,
-            .root_module = b.createModule(.{
-                .root_source_file = b.path(b.fmt("examples/{s}", .{name})),
-                .imports = &.{.{ .name = "lenore-platform", .module = mod }},
-                .target = target,
-                .optimize = optimize,
-            }),
-        });
-        examples_step.dependOn(&b.addInstallArtifact(exe, .{}).step);
-
-        // Deliberately not depending on examples_step: running one example must
-        // not rebuild the others. addRunArtifact already depends on this exe.
-        const run = b.addRunArtifact(exe);
-        if (b.args) |args| run.addArgs(args);
-        b.step(b.fmt("run-{s}", .{stem}), b.fmt("Run the {s} example", .{stem}))
-            .dependOn(&run.step);
-    }
 }
 
 /// Sorted names of the `.zig` files directly in `dir_path`, or nothing if the
