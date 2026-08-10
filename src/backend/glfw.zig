@@ -1,12 +1,17 @@
 //! Temporary glfw backend. It is deleted whole when the native backends land,
 //! so nothing here is load-bearing for the contract.
 
+const builtin = @import("builtin");
 const std = @import("std");
 const glfw = @import("zglfw");
 const window = @import("../window.zig");
 const events = @import("../events.zig");
 const Input = @import("../input.zig").Input;
 const Extent2D = @import("../types.zig").Extent2D;
+
+// Declared here because std 0.16 has no binding for it: std/os/windows/kernel32.zig
+// binds CreateProcessW and nothing else.
+extern "kernel32" fn GetModuleHandleW(module_name: ?[*:0]const u16) callconv(.winapi) ?std.os.windows.HMODULE;
 
 pub const Platform = struct {
     pub fn init() window.InitError!Platform {
@@ -60,11 +65,21 @@ pub const Window = struct {
         return glfw.windowShouldClose(self.handle);
     }
 
+    // Switched at comptime rather than by unwrapping whichever getter answers:
+    // zglfw binds each of these to a stub returning null off its own platform
+    // (zglfw.zig, `getWin32Window` and `getWaylandWindow`), so a wrong target
+    // would reach the unwrap below instead of failing to build.
     pub fn nativeHandles(self: *Window) window.NativeHandles {
-        return .{ .wayland = .{
-            .display = glfw.getWaylandDisplay().?,
-            .surface = glfw.getWaylandWindow(self.handle).?,
-        } };
+        return switch (builtin.os.tag) {
+            .windows => .{ .win32 = .{
+                .hinstance = GetModuleHandleW(null).?,
+                .hwnd = glfw.getWin32Window(self.handle).?,
+            } },
+            else => .{ .wayland = .{
+                .display = glfw.getWaylandDisplay().?,
+                .surface = glfw.getWaylandWindow(self.handle).?,
+            } },
+        };
     }
 
     pub fn setCursorMode(self: *Window, mode: window.CursorMode) window.CursorModeError!void {

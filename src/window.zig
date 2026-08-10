@@ -3,8 +3,15 @@ const Extent2D = @import("types.zig").Extent2D;
 const Input = @import("input.zig").Input;
 
 // Native surface handles, for whoever creates a graphics surface from them.
+// Opaque pointers rather than the OS types: the consumer knows which arm it
+// asked for and casts.
+//
+// Every arm is declared on every target. Which one can occur is the backend's
+// property and `backend/select.zig` already settles it, so narrowing the union
+// as well would put that decision in two places.
 pub const NativeHandles = union(enum) {
     wayland: struct { display: *anyopaque, surface: *anyopaque },
+    win32: struct { hinstance: *anyopaque, hwnd: *anyopaque },
 };
 
 // `disabled` is pointer capture: the cursor is hidden and its position becomes
