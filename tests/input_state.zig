@@ -60,6 +60,61 @@ test "focus loss clears held input" {
     try testing.expect(!state.buttonDown(.left));
     try testing.expect(!state.buttonDown(.forward));
 }
+test "framebuffer conversion answers only for the generation it was measured under" {
+    const configuration: platform.SurfaceMetrics = .{
+        .logical_size = .{ 1000, 700 },
+        .framebuffer_extent = .{ .width = 1501, .height = 1051 },
+        .scale = .{ 1.5, 1.5 },
+        .generation = 7,
+    };
+
+    try testing.expectEqual(
+        @as([2]f32, .{ 750.5, 525.5 }),
+        platform.framebufferPosition(configuration, .{ 500, 350 }, 7).?,
+    );
+    // The same position under the configuration before this one. The window
+    // has since changed size, so there is no answer rather than a plausible
+    // one.
+    try testing.expectEqual(null, platform.framebufferPosition(configuration, .{ 500, 350 }, 6));
+
+    // Outside the window on both axes, which is a position a drag leaves the
+    // surface with and not an error.
+    try testing.expectEqual(
+        @as([2]f32, .{ -750.5, 1051 }),
+        platform.framebufferPosition(configuration, .{ -500, 700 }, 7).?,
+    );
+}
+
+test "framebuffer conversion refuses what it cannot place" {
+    const configuration: platform.SurfaceMetrics = .{
+        .logical_size = .{ 1000, 700 },
+        .framebuffer_extent = .{ .width = 1501, .height = 1051 },
+        .scale = .{ 1.5, 1.5 },
+        .generation = 1,
+    };
+
+    try testing.expectEqual(
+        null,
+        platform.framebufferPosition(configuration, .{ std.math.nan(f32), 350 }, 1),
+    );
+    try testing.expectEqual(
+        null,
+        platform.framebufferPosition(configuration, .{ 500, std.math.inf(f32) }, 1),
+    );
+
+    var degenerate = configuration;
+    degenerate.logical_size = .{ 0, 700 };
+    try testing.expectEqual(null, platform.framebufferPosition(degenerate, .{ 0, 350 }, 1));
+    degenerate.logical_size = .{ 1000, -1 };
+    try testing.expectEqual(null, platform.framebufferPosition(degenerate, .{ 500, 0 }, 1));
+
+    // Both operands finite and the product not. A logical size this small is
+    // not something a compositor reports, and it is the only way a finite
+    // position leaves the conversion as an infinity.
+    degenerate.logical_size = .{ 1e-30, 700 };
+    try testing.expectEqual(null, platform.framebufferPosition(degenerate, .{ 1e30, 350 }, 1));
+}
+
 test "cursor conversion requires matching valid metrics" {
     var state: platform.InputState = .{};
     try testing.expectEqual(null, state.cursorFramebuffer());

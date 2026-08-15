@@ -5,6 +5,15 @@ const input = @import("input.zig");
 pub const Extent2D = @import("types.zig").Extent2D;
 pub const Clock = @import("clock.zig").Clock;
 
+pub const SystemFont = @import("system_font.zig").Found;
+pub const SystemFontError = @import("system_font.zig").Error;
+pub const SystemFontHintStyle = @import("system_font.zig").HintStyle;
+pub const SystemFontRendering = @import("system_font.zig").Rendering;
+pub const SystemFontRequest = @import("system_font.zig").Request;
+pub const SystemFontSubpixel = @import("system_font.zig").SubpixelLayout;
+pub const SystemFontWeight = @import("system_font.zig").Weight;
+pub const findSystemFont = @import("system_font.zig").find;
+
 pub const Platform = window.Platform;
 pub const Window = window.Window;
 pub const NativeHandles = window.NativeHandles;
@@ -15,6 +24,7 @@ pub const CursorModeError = window.CursorModeError;
 
 pub const Input = input.Input;
 pub const InputState = @import("input_state.zig").InputState;
+pub const framebufferPosition = @import("input_state.zig").framebufferPosition;
 pub const EventQueue = @import("event_queue.zig").EventQueue;
 pub const initial_event_capacity = input.initial_event_capacity;
 pub const max_event_capacity = input.max_event_capacity;

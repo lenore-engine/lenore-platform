@@ -4,6 +4,42 @@ const events = @import("events.zig");
 const key_count = @typeInfo(events.PhysicalKey).@"enum".fields.len;
 const button_count = @typeInfo(events.MouseButton).@"enum".fields.len;
 
+// Where a logical position delivered under `generation` lands in framebuffer
+// pixels, or null when it cannot be placed.
+//
+// The generation has to match: a position measured against an earlier surface
+// configuration describes a window of a different size, and scaling it by the
+// current ratio puts it somewhere the pointer never was.
+//
+// The framebuffer/logical ratio and not `metrics.scale`, because a fractional
+// content scale has already been rounded into the integer framebuffer extent,
+// and the ratio is what the raster is.
+//
+// This is the one place the conversion is written. Every consumer of a
+// position an event carries goes through it, so the rule above cannot exist in
+// a second copy that disagrees.
+pub fn framebufferPosition(
+    metrics: events.SurfaceMetrics,
+    logical: [2]f32,
+    generation: u32,
+) ?[2]f32 {
+    if (metrics.generation != generation) return null;
+    if (!std.math.isFinite(logical[0]) or !std.math.isFinite(logical[1])) return null;
+    if (metrics.logical_size[0] <= 0 or metrics.logical_size[1] <= 0) return null;
+
+    const position: [2]f32 = .{
+        logical[0] / metrics.logical_size[0] *
+            @as(f32, @floatFromInt(metrics.framebuffer_extent.width)),
+        logical[1] / metrics.logical_size[1] *
+            @as(f32, @floatFromInt(metrics.framebuffer_extent.height)),
+    };
+    // Finite operands are not enough: a logical size small enough to be
+    // subnormal takes a finite position to infinity. The result is what leaves
+    // this module, so it is what is checked.
+    if (!std.math.isFinite(position[0]) or !std.math.isFinite(position[1])) return null;
+    return position;
+}
+
 // Polled state folded from the same payloads the ring carries.
 pub const InputState = struct {
     keys_down: std.StaticBitSet(key_count) = .initEmpty(),
@@ -50,20 +86,9 @@ pub const InputState = struct {
         return self.buttons_down.isSet(@intFromEnum(button));
     }
 
-    // Converts the logical pointer using the exact metrics generation it was
-    // delivered under.
+    // The polled pointer, converted under the metrics it was delivered with.
     pub fn cursorFramebuffer(self: *const InputState) ?[2]f32 {
         const metrics = self.metrics orelse return null;
-        if (metrics.generation != self.cursor_metrics_generation) return null;
-        if (!std.math.isFinite(self.cursor_logical[0]) or
-            !std.math.isFinite(self.cursor_logical[1])) return null;
-        if (metrics.logical_size[0] <= 0 or metrics.logical_size[1] <= 0) return null;
-
-        return .{
-            self.cursor_logical[0] / metrics.logical_size[0] *
-                @as(f32, @floatFromInt(metrics.framebuffer_extent.width)),
-            self.cursor_logical[1] / metrics.logical_size[1] *
-                @as(f32, @floatFromInt(metrics.framebuffer_extent.height)),
-        };
+        return framebufferPosition(metrics, self.cursor_logical, self.cursor_metrics_generation);
     }
 };
