@@ -273,7 +273,7 @@ pub const Clipboard = struct {
 
                 const mime = Mime.parse(offered.mime_type) orelse return;
                 const better = if (pending.mime) |current|
-                    @intFromEnum(mime) < @intFromEnum(current)
+                    @backingInt(mime) < @backingInt(current)
                 else
                     true;
                 if (better) pending.mime = mime;

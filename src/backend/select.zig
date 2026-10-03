@@ -4,7 +4,7 @@ const builtin = @import("builtin");
 // is never analysed, so it cannot link. Every backend here is native and fully
 // implemented, and a target without one is a compile error rather than a stub
 // that answers "unavailable".
-pub const active = switch (builtin.os.tag) {
+pub const active = switch (builtin.target.os.tag) {
     .linux => @import("linux/Wayland.zig"),
-    else => @compileError("lenore-platform has no backend for " ++ @tagName(builtin.os.tag)),
+    else => @compileError("lenore-platform has no backend for " ++ @tagName(builtin.target.os.tag)),
 };

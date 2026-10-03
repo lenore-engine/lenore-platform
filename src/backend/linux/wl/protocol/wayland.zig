@@ -262,7 +262,7 @@ pub const ShmPool = opaque {
             .{ .i = width },
             .{ .i = height },
             .{ .i = stride },
-            .{ .u = @intFromEnum(format) },
+            .{ .u = @backingInt(format) },
         };
         const created = self.proxy().marshalConstructor(0, Buffer.interface, &args) orelse
             return error.ProxyCreationFailed;
@@ -626,8 +626,8 @@ pub const DataOffer = opaque {
     // since version 3
     pub fn setActions(self: *DataOffer, dnd_actions: DataDeviceManager.DndAction, preferred_action: DataDeviceManager.DndAction) void {
         var args = [_]client.Argument{
-            .{ .u = @intFromEnum(dnd_actions) },
-            .{ .u = @intFromEnum(preferred_action) },
+            .{ .u = @backingInt(dnd_actions) },
+            .{ .u = @backingInt(preferred_action) },
         };
         self.proxy().marshal(4, &args);
     }
@@ -714,7 +714,7 @@ pub const DataSource = opaque {
     // since version 3
     pub fn setActions(self: *DataSource, dnd_actions: DataDeviceManager.DndAction) void {
         var args = [_]client.Argument{
-            .{ .u = @intFromEnum(dnd_actions) },
+            .{ .u = @backingInt(dnd_actions) },
         };
         self.proxy().marshal(2, &args);
     }
@@ -992,7 +992,7 @@ pub const ShellSurface = opaque {
         var args = [_]client.Argument{
             .{ .o = @ptrCast(seat) },
             .{ .u = serial },
-            .{ .u = @intFromEnum(edges) },
+            .{ .u = @backingInt(edges) },
         };
         self.proxy().marshal(2, &args);
     }
@@ -1006,14 +1006,14 @@ pub const ShellSurface = opaque {
             .{ .o = @ptrCast(parent) },
             .{ .i = x },
             .{ .i = y },
-            .{ .u = @intFromEnum(flags) },
+            .{ .u = @backingInt(flags) },
         };
         self.proxy().marshal(4, &args);
     }
 
     pub fn setFullscreen(self: *ShellSurface, method: FullscreenMethod, framerate: u32, output: ?*Output) void {
         var args = [_]client.Argument{
-            .{ .u = @intFromEnum(method) },
+            .{ .u = @backingInt(method) },
             .{ .u = framerate },
             .{ .o = @ptrCast(output) },
         };
@@ -1027,7 +1027,7 @@ pub const ShellSurface = opaque {
             .{ .o = @ptrCast(parent) },
             .{ .i = x },
             .{ .i = y },
-            .{ .u = @intFromEnum(flags) },
+            .{ .u = @backingInt(flags) },
         };
         self.proxy().marshal(6, &args);
     }
@@ -1180,7 +1180,7 @@ pub const Surface = opaque {
     // since version 2
     pub fn setBufferTransform(self: *Surface, transform: Output.Transform) void {
         var args = [_]client.Argument{
-            .{ .i = @intCast(@intFromEnum(transform)) },
+            .{ .i = @intCast(@backingInt(transform)) },
         };
         self.proxy().marshal(7, &args);
     }

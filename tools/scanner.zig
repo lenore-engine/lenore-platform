@@ -69,7 +69,7 @@ pub fn main(init: std.process.Init) !void {
         var text: std.ArrayList(u8) = .empty;
         try emitProtocol(arena, &text, protocols.items, index, i);
 
-        const name = try std.fmt.allocPrint(arena, "{s}.zig", .{protocol.file_stem});
+        const name = try arena.print("{s}.zig", .{protocol.file_stem});
         try out_dir.writeFile(io, .{ .sub_path = name, .data = text.items });
         std.debug.print("{s}: {d} interfaces\n", .{ name, protocol.interfaces.items.len });
     }
@@ -432,9 +432,8 @@ const Context = struct {
     fn interfaceRef(self: Context, interface_name: []const u8) !?[]const u8 {
         const owner = self.index.get(interface_name) orelse return null;
         const local = try typeName(self.arena, interface_name);
-        if (owner == self.self) return try std.fmt.allocPrint(self.arena, "{s}.interface", .{local});
-        return try std.fmt.allocPrint(
-            self.arena,
+        if (owner == self.self) return try self.arena.print("{s}.interface", .{local});
+        return try self.arena.print(
             "{s}.{s}.interface",
             .{ self.protocols[owner].file_stem, local },
         );
@@ -444,8 +443,7 @@ const Context = struct {
         const owner = self.index.get(interface_name) orelse return null;
         const local = try typeName(self.arena, interface_name);
         if (owner == self.self) return local;
-        return try std.fmt.allocPrint(
-            self.arena,
+        return try self.arena.print(
             "{s}.{s}",
             .{ self.protocols[owner].file_stem, local },
         );
@@ -691,37 +689,36 @@ fn eventArg(arena: std.mem.Allocator, context: Context, arg: Arg, slot: usize) !
     type: []const u8,
     read: []const u8,
 } {
-    const read = try std.fmt.allocPrint(arena, "args[{d}]", .{slot});
+    const read = try arena.print("args[{d}]", .{slot});
     return switch (arg.type) {
-        .int => .{ .type = "i32", .read = try std.fmt.allocPrint(arena, "{s}.i", .{read}) },
-        .uint => .{ .type = "u32", .read = try std.fmt.allocPrint(arena, "{s}.u", .{read}) },
-        .fixed => .{ .type = "client.Fixed", .read = try std.fmt.allocPrint(arena, "{s}.f", .{read}) },
-        .fd => .{ .type = "i32", .read = try std.fmt.allocPrint(arena, "{s}.h", .{read}) },
+        .int => .{ .type = "i32", .read = try arena.print("{s}.i", .{read}) },
+        .uint => .{ .type = "u32", .read = try arena.print("{s}.u", .{read}) },
+        .fixed => .{ .type = "client.Fixed", .read = try arena.print("{s}.f", .{read}) },
+        .fd => .{ .type = "i32", .read = try arena.print("{s}.h", .{read}) },
         .string => .{
             .type = if (arg.allow_null) "?[*:0]const u8" else "[*:0]const u8",
             .read = if (arg.allow_null)
-                try std.fmt.allocPrint(arena, "{s}.s", .{read})
+                try arena.print("{s}.s", .{read})
             else
-                try std.fmt.allocPrint(arena, "{s}.s.?", .{read}),
+                try arena.print("{s}.s.?", .{read}),
         },
         .array => .{
             .type = "*const client.Array",
-            .read = try std.fmt.allocPrint(arena, "{s}.a.?", .{read}),
+            .read = try arena.print("{s}.a.?", .{read}),
         },
         .object, .new_id => blk: {
             const target = if (arg.interface) |i| try context.typeRef(i) else null;
             const pointee = target orelse "client.Proxy";
             const nullable = arg.allow_null or arg.type == .object;
             break :blk .{
-                .type = try std.fmt.allocPrint(
-                    arena,
+                .type = try arena.print(
                     "{s}*{s}",
                     .{ if (nullable) "?" else "", pointee },
                 ),
                 .read = if (nullable)
-                    try std.fmt.allocPrint(arena, "@ptrCast({s}.o)", .{read})
+                    try arena.print("@ptrCast({s}.o)", .{read})
                 else
-                    try std.fmt.allocPrint(arena, "@ptrCast({s}.o.?)", .{read}),
+                    try arena.print("@ptrCast({s}.o.?)", .{read}),
             };
         },
     };
@@ -846,8 +843,7 @@ fn emitRequest(
             .array => "*const client.Array",
             .object => blk: {
                 const target = (try context.typeRef(arg.interface.?));
-                break :blk try std.fmt.allocPrint(
-                    arena,
+                break :blk try arena.print(
                     "{s}*{s}",
                     .{ if (arg.allow_null) "?" else "", target.? },
                 );
@@ -859,7 +855,7 @@ fn emitRequest(
 
     const return_type: []const u8 = if (returns) |arg|
         if (arg.interface) |named|
-            try std.fmt.allocPrint(arena, "client.CreateError!*{s}", .{(try context.typeRef(named)).?})
+            try arena.print("client.CreateError!*{s}", .{(try context.typeRef(named)).?})
         else
             "client.CreateError!*T"
     else
@@ -893,21 +889,21 @@ fn emitRequest(
                 try out.appendSlice(arena, "            .{ .n = 0 },\n");
                 continue;
             }
-            const id = try std.fmt.allocPrint(arena, "{f}", .{std.zig.fmtId(arg.name)});
+            const id = try arena.print("{f}", .{std.zig.fmtId(arg.name)});
             const value: []const u8 = switch (arg.type) {
                 .int => if (arg.enum_ref != null)
-                    try std.fmt.allocPrint(arena, ".{{ .i = @intCast(@intFromEnum({s})) }}", .{id})
+                    try arena.print(".{{ .i = @intCast(@intFromEnum({s})) }}", .{id})
                 else
-                    try std.fmt.allocPrint(arena, ".{{ .i = {s} }}", .{id}),
+                    try arena.print(".{{ .i = {s} }}", .{id}),
                 .uint => if (arg.enum_ref != null)
-                    try std.fmt.allocPrint(arena, ".{{ .u = @intFromEnum({s}) }}", .{id})
+                    try arena.print(".{{ .u = @intFromEnum({s}) }}", .{id})
                 else
-                    try std.fmt.allocPrint(arena, ".{{ .u = {s} }}", .{id}),
-                .fixed => try std.fmt.allocPrint(arena, ".{{ .f = {s} }}", .{id}),
-                .fd => try std.fmt.allocPrint(arena, ".{{ .h = {s} }}", .{id}),
-                .string => try std.fmt.allocPrint(arena, ".{{ .s = {s} }}", .{id}),
-                .array => try std.fmt.allocPrint(arena, ".{{ .a = @constCast({s}) }}", .{id}),
-                .object => try std.fmt.allocPrint(arena, ".{{ .o = @ptrCast({s}) }}", .{id}),
+                    try arena.print(".{{ .u = {s} }}", .{id}),
+                .fixed => try arena.print(".{{ .f = {s} }}", .{id}),
+                .fd => try arena.print(".{{ .h = {s} }}", .{id}),
+                .string => try arena.print(".{{ .s = {s} }}", .{id}),
+                .array => try arena.print(".{{ .a = @constCast({s}) }}", .{id}),
+                .object => try arena.print(".{{ .o = @ptrCast({s}) }}", .{id}),
                 .new_id => unreachable,
             };
             try out.print(arena, "            {s},\n", .{value});
@@ -955,7 +951,7 @@ fn enumRef(arena: std.mem.Allocator, context: Context, reference: []const u8) ![
         const interface_name = reference[0..dot];
         const enum_name = try pascalCase(arena, reference[dot + 1 ..]);
         const target = (try context.typeRef(interface_name)) orelse return "u32";
-        return std.fmt.allocPrint(arena, "{s}.{s}", .{ target, enum_name });
+        return arena.print("{s}.{s}", .{ target, enum_name });
     }
     return pascalCase(arena, reference);
 }

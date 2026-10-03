@@ -1,8 +1,8 @@
 const std = @import("std");
 const events = @import("events.zig");
 
-const key_count = @typeInfo(events.PhysicalKey).@"enum".fields.len;
-const button_count = @typeInfo(events.MouseButton).@"enum".fields.len;
+const key_count = @typeInfo(events.PhysicalKey).@"enum".field_names.len;
+const button_count = @typeInfo(events.MouseButton).@"enum".field_names.len;
 
 // Where a logical position delivered under `generation` lands in framebuffer
 // pixels, or null when it cannot be placed.
@@ -42,8 +42,8 @@ pub fn framebufferPosition(
 
 // Polled state folded from the same payloads the ring carries.
 pub const InputState = struct {
-    keys_down: std.StaticBitSet(key_count) = .initEmpty(),
-    buttons_down: std.StaticBitSet(button_count) = .initEmpty(),
+    keys_down: std.bit_set.Static(key_count) = .empty,
+    buttons_down: std.bit_set.Static(button_count) = .empty,
     cursor_logical: [2]f32 = .{ 0, 0 },
     cursor_metrics_generation: u32 = 0,
     // Focused until told otherwise: a backend that never sends focus events
@@ -55,10 +55,10 @@ pub const InputState = struct {
         switch (payload) {
             .key => |event| {
                 if (event.physical == .unknown) return;
-                self.keys_down.setValue(@intFromEnum(event.physical), event.action != .release);
+                self.keys_down.setValue(@backingInt(event.physical), event.action != .release);
             },
             .mouse_button => |event| {
-                self.buttons_down.setValue(@intFromEnum(event.button), event.action != .release);
+                self.buttons_down.setValue(@backingInt(event.button), event.action != .release);
             },
             .cursor => |event| {
                 self.cursor_logical = event.logical_position;
@@ -69,8 +69,8 @@ pub const InputState = struct {
                 self.focused = event.focused;
                 // Fail-safe: a key held across focus loss never gets its release.
                 if (!event.focused) {
-                    self.keys_down = .initEmpty();
-                    self.buttons_down = .initEmpty();
+                    self.keys_down = .empty;
+                    self.buttons_down = .empty;
                 }
             },
             .surface_metrics => |metrics| self.metrics = metrics,
@@ -79,11 +79,11 @@ pub const InputState = struct {
     }
 
     pub fn keyDown(self: *const InputState, key: events.PhysicalKey) bool {
-        return self.keys_down.isSet(@intFromEnum(key));
+        return self.keys_down.isSet(@backingInt(key));
     }
 
     pub fn buttonDown(self: *const InputState, button: events.MouseButton) bool {
-        return self.buttons_down.isSet(@intFromEnum(button));
+        return self.buttons_down.isSet(@backingInt(button));
     }
 
     // The polled pointer, converted under the metrics it was delivered with.

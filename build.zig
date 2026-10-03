@@ -51,7 +51,7 @@ pub fn build(b: *std.Build) void {
         .root_module = b.createModule(.{
             .root_source_file = b.path("tools/scanner.zig"),
             .target = b.graph.host,
-            .optimize = .Debug,
+            .optimize = .debug,
         }),
     });
     const scan = b.addRunArtifact(scanner);
@@ -96,17 +96,27 @@ pub fn build(b: *std.Build) void {
 fn zigFilesIn(b: *std.Build, dir_path: []const u8) [][]const u8 {
     var names: std.ArrayList([]const u8) = .empty;
 
-    // The filesystem is behind std.Io in 0.16, and the build graph carries the
-    // Io the rest of the build already uses.
+    // The filesystem is behind std.Io, and the build graph carries the Io the
+    // rest of the build already uses.
+    //
+    // The listing is configuration, and the build system reuses a configuration
+    // while the inputs it recorded are unchanged. Declaring the directory as one
+    // makes a file added or removed a cache miss rather than a stale list. A
+    // directory that does not exist is recorded through its parent, whose
+    // entries are what say so (std.Build.dependOnDirectoryContents).
     const io = b.graph.io;
-    var dir = b.build_root.handle.openDir(io, dir_path, .{ .iterate = true }) catch |err| switch (err) {
+    var dir = b.root.openDir(io, dir_path, .{ .iterate = true }) catch |err| switch (err) {
         // A module without the directory yet is normal. Anything else is a
         // broken checkout or wrong permissions, and silently building nothing
         // would look like a suite that passes.
-        error.FileNotFound => return names.items,
+        error.FileNotFound => {
+            b.dependOnDirectoryContents(b.path(std.fs.path.dirname(dir_path) orelse "."));
+            return names.items;
+        },
         else => std.debug.panic("cannot open {s}/: {t}", .{ dir_path, err }),
     };
     defer dir.close(io);
+    b.dependOnDirectoryContents(b.path(dir_path));
 
     var walker = dir.iterate();
     while (walker.next(io) catch @panic("cannot list the directory")) |entry| {

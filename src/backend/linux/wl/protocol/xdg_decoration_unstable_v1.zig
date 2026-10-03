@@ -118,7 +118,7 @@ pub const ToplevelDecorationV1 = opaque {
 
     pub fn setMode(self: *ToplevelDecorationV1, mode: Mode) void {
         var args = [_]client.Argument{
-            .{ .u = @intFromEnum(mode) },
+            .{ .u = @backingInt(mode) },
         };
         self.proxy().marshal(1, &args);
     }

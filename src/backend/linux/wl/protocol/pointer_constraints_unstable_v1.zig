@@ -49,7 +49,7 @@ pub const PointerConstraintsV1 = opaque {
             .{ .o = @ptrCast(surface) },
             .{ .o = @ptrCast(pointer) },
             .{ .o = @ptrCast(region) },
-            .{ .u = @intFromEnum(lifetime) },
+            .{ .u = @backingInt(lifetime) },
         };
         const created = self.proxy().marshalConstructor(1, LockedPointerV1.interface, &args) orelse
             return error.ProxyCreationFailed;
@@ -62,7 +62,7 @@ pub const PointerConstraintsV1 = opaque {
             .{ .o = @ptrCast(surface) },
             .{ .o = @ptrCast(pointer) },
             .{ .o = @ptrCast(region) },
-            .{ .u = @intFromEnum(lifetime) },
+            .{ .u = @backingInt(lifetime) },
         };
         const created = self.proxy().marshalConstructor(2, ConfinedPointerV1.interface, &args) orelse
             return error.ProxyCreationFailed;

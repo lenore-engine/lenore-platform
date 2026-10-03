@@ -40,17 +40,17 @@ fn check(io: std.Io, found: platform.SystemFont) !void {
 // mode, and nothing in the picture would say so: the text would simply be worse
 // on every machine that configured it.
 test "the two enumerations carry the host's own numbering" {
-    try testing.expectEqual(@as(c_int, 0), @intFromEnum(platform.SystemFontSubpixel.unknown));
-    try testing.expectEqual(@as(c_int, 1), @intFromEnum(platform.SystemFontSubpixel.rgb));
-    try testing.expectEqual(@as(c_int, 2), @intFromEnum(platform.SystemFontSubpixel.bgr));
-    try testing.expectEqual(@as(c_int, 3), @intFromEnum(platform.SystemFontSubpixel.vrgb));
-    try testing.expectEqual(@as(c_int, 4), @intFromEnum(platform.SystemFontSubpixel.vbgr));
-    try testing.expectEqual(@as(c_int, 5), @intFromEnum(platform.SystemFontSubpixel.none));
+    try testing.expectEqual(@as(c_int, 0), @backingInt(platform.SystemFontSubpixel.unknown));
+    try testing.expectEqual(@as(c_int, 1), @backingInt(platform.SystemFontSubpixel.rgb));
+    try testing.expectEqual(@as(c_int, 2), @backingInt(platform.SystemFontSubpixel.bgr));
+    try testing.expectEqual(@as(c_int, 3), @backingInt(platform.SystemFontSubpixel.vrgb));
+    try testing.expectEqual(@as(c_int, 4), @backingInt(platform.SystemFontSubpixel.vbgr));
+    try testing.expectEqual(@as(c_int, 5), @backingInt(platform.SystemFontSubpixel.none));
 
-    try testing.expectEqual(@as(c_int, 0), @intFromEnum(platform.SystemFontHintStyle.none));
-    try testing.expectEqual(@as(c_int, 1), @intFromEnum(platform.SystemFontHintStyle.slight));
-    try testing.expectEqual(@as(c_int, 2), @intFromEnum(platform.SystemFontHintStyle.medium));
-    try testing.expectEqual(@as(c_int, 3), @intFromEnum(platform.SystemFontHintStyle.full));
+    try testing.expectEqual(@as(c_int, 0), @backingInt(platform.SystemFontHintStyle.none));
+    try testing.expectEqual(@as(c_int, 1), @backingInt(platform.SystemFontHintStyle.slight));
+    try testing.expectEqual(@as(c_int, 2), @backingInt(platform.SystemFontHintStyle.medium));
+    try testing.expectEqual(@as(c_int, 3), @backingInt(platform.SystemFontHintStyle.full));
 
     // The fallbacks a match that carried no such property leaves behind. They
     // are this module's and not fontconfig's, which is why they are stated

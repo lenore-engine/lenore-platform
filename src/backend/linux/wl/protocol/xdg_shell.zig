@@ -206,21 +206,21 @@ pub const Positioner = opaque {
 
     pub fn setAnchor(self: *Positioner, anchor: Anchor) void {
         var args = [_]client.Argument{
-            .{ .u = @intFromEnum(anchor) },
+            .{ .u = @backingInt(anchor) },
         };
         self.proxy().marshal(3, &args);
     }
 
     pub fn setGravity(self: *Positioner, gravity: Gravity) void {
         var args = [_]client.Argument{
-            .{ .u = @intFromEnum(gravity) },
+            .{ .u = @backingInt(gravity) },
         };
         self.proxy().marshal(4, &args);
     }
 
     pub fn setConstraintAdjustment(self: *Positioner, constraint_adjustment: ConstraintAdjustment) void {
         var args = [_]client.Argument{
-            .{ .u = @intFromEnum(constraint_adjustment) },
+            .{ .u = @backingInt(constraint_adjustment) },
         };
         self.proxy().marshal(5, &args);
     }
@@ -548,7 +548,7 @@ pub const Toplevel = opaque {
         var args = [_]client.Argument{
             .{ .o = @ptrCast(seat) },
             .{ .u = serial },
-            .{ .u = @intFromEnum(edges) },
+            .{ .u = @backingInt(edges) },
         };
         self.proxy().marshal(6, &args);
     }

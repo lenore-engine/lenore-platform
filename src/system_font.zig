@@ -155,7 +155,7 @@ pub fn find(buffer: []u8, request: Request) Error!?Found {
     defer fc.patternDestroy(pattern);
 
     _ = fc.patternAddString(pattern, "family", request.family.ptr);
-    _ = fc.patternAddInteger(pattern, "weight", @intFromEnum(request.weight));
+    _ = fc.patternAddInteger(pattern, "weight", @backingInt(request.weight));
     _ = fc.patternAddInteger(pattern, "slant", if (request.italic) slant_italic else slant_roman);
     // A bitmap face has strikes at the sizes it was drawn at and nothing in
     // between, so a rasteriser opened at an arbitrary pixel size fails on one.
@@ -299,12 +299,12 @@ const Fontconfig = struct {
     // cannot be forgotten here.
     fn load(library: *std.DynLib) ?Fontconfig {
         var self: Fontconfig = undefined;
-        inline for (@typeInfo(Fontconfig).@"struct".fields) |field| {
+        inline for (@typeInfo(Fontconfig).@"struct".field_names, @typeInfo(Fontconfig).@"struct".field_types) |field_name, field_type| {
             const symbol = comptime std.fmt.comptimePrint("Fc{c}{s}", .{
-                std.ascii.toUpper(field.name[0]),
-                field.name[1..],
+                std.ascii.toUpper(field_name[0]),
+                field_name[1..],
             });
-            @field(self, field.name) = library.lookup(field.type, symbol) orelse return null;
+            @field(self, field_name) = library.lookup(field_type, symbol) orelse return null;
         }
         return self;
     }

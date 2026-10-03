@@ -184,8 +184,8 @@ pub const Seat = struct {
     }
 
     fn applyCapabilities(self: *Seat, capabilities: u32) void {
-        const has_pointer = capabilities & @intFromEnum(wl.Seat.Capability.pointer) != 0;
-        const has_keyboard = capabilities & @intFromEnum(wl.Seat.Capability.keyboard) != 0;
+        const has_pointer = capabilities & @backingInt(wl.Seat.Capability.pointer) != 0;
+        const has_keyboard = capabilities & @backingInt(wl.Seat.Capability.keyboard) != 0;
 
         if (has_pointer and self.pointer == null) self.openPointer();
         if (!has_pointer and self.pointer != null) self.closePointer();
@@ -328,7 +328,7 @@ pub const Seat = struct {
         const input = inputOf(self.pointer_focus) orelse return;
         input.submit(.{ .mouse_button = .{
             .button = keycodes.mouseButton(code),
-            .action = if (state == @intFromEnum(wl.Pointer.ButtonState.pressed))
+            .action = if (state == @backingInt(wl.Pointer.ButtonState.pressed))
                 .press
             else
                 .release,
@@ -339,7 +339,7 @@ pub const Seat = struct {
     }
 
     fn accumulate(self: *Seat, axis: u32, pixels: ?f32, lines: ?f32) void {
-        const index: usize = if (axis == @intFromEnum(wl.Pointer.Axis.horizontal_scroll)) 0 else 1;
+        const index: usize = if (axis == @backingInt(wl.Pointer.Axis.horizontal_scroll)) 0 else 1;
         if (pixels) |value| self.frame.pixel[index] += value;
         if (lines) |value| self.frame.line[index] += value;
         self.frame.pending = true;
@@ -486,7 +486,7 @@ pub const Seat = struct {
             _ = posix.close(fd);
             return;
         };
-        if (format != @intFromEnum(wl.Keyboard.KeymapFormat.xkb_v1)) {
+        if (format != @backingInt(wl.Keyboard.KeymapFormat.xkb_v1)) {
             std.log.err("wayland: the compositor sent keymap format {d}, not xkb_v1", .{format});
             _ = posix.close(fd);
             return;
@@ -501,8 +501,8 @@ pub const Seat = struct {
         const physical = keycodes.physicalKey(key);
 
         const action: events.KeyAction = switch (state) {
-            @intFromEnum(wl.Keyboard.KeyState.released) => .release,
-            @intFromEnum(wl.Keyboard.KeyState.repeated) => .repeat,
+            @backingInt(wl.Keyboard.KeyState.released) => .release,
+            @backingInt(wl.Keyboard.KeyState.repeated) => .repeat,
             else => .press,
         };
 
@@ -605,12 +605,12 @@ fn release(object: anytype, comptime since: u32) void {
 
 fn scrollSource(source: u32) events.ScrollSource {
     return switch (source) {
-        @intFromEnum(wl.Pointer.AxisSource.wheel) => .wheel,
-        @intFromEnum(wl.Pointer.AxisSource.finger) => .finger,
-        @intFromEnum(wl.Pointer.AxisSource.continuous) => .continuous,
+        @backingInt(wl.Pointer.AxisSource.wheel) => .wheel,
+        @backingInt(wl.Pointer.AxisSource.finger) => .finger,
+        @backingInt(wl.Pointer.AxisSource.continuous) => .continuous,
         // wheel_tilt is a wheel pushed sideways, which reaches the contract as
         // a horizontal wheel and has no source of its own.
-        @intFromEnum(wl.Pointer.AxisSource.wheel_tilt) => .wheel,
+        @backingInt(wl.Pointer.AxisSource.wheel_tilt) => .wheel,
         else => .unknown,
     };
 }

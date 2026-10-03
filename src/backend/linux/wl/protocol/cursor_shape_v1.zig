@@ -122,7 +122,7 @@ pub const CursorShapeDeviceV1 = opaque {
     pub fn setShape(self: *CursorShapeDeviceV1, serial: u32, shape: Shape) void {
         var args = [_]client.Argument{
             .{ .u = serial },
-            .{ .u = @intFromEnum(shape) },
+            .{ .u = @backingInt(shape) },
         };
         self.proxy().marshal(1, &args);
     }

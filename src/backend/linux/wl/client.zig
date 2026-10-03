@@ -26,7 +26,7 @@ pub const Fixed = enum(i32) {
     _,
 
     pub fn toFloat(self: Fixed) f32 {
-        return @as(f32, @floatFromInt(@intFromEnum(self))) / 256.0;
+        return @as(f32, @floatFromInt(@backingInt(self))) / 256.0;
     }
 
     pub fn fromFloat(value: f32) Fixed {
@@ -34,13 +34,13 @@ pub const Fixed = enum(i32) {
         // build, so the domain is narrowed here instead of being assumed. The
         // 24.8 range is about +-8.4e6, which a surface coordinate cannot reach,
         // but a non-finite value can arrive from any float arithmetic.
-        if (!std.math.isFinite(value)) return @enumFromInt(0);
+        if (!std.math.isFinite(value)) return @fromBackingInt(@intCast(0));
         const scaled = std.math.clamp(
             @round(value * 256.0),
             @as(f32, @floatFromInt(std.math.minInt(i32))),
             @as(f32, @floatFromInt(std.math.maxInt(i32))),
         );
-        return @enumFromInt(@as(i32, @intFromFloat(scaled)));
+        return @fromBackingInt(@intCast(@as(i32, @intFromFloat(scaled))));
     }
 };
 
