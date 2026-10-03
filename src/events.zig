@@ -170,9 +170,8 @@ pub const KeyEvent = struct {
 pub const TextKind = enum(u8) { commit, preedit };
 
 // `bytes` is 16: Unicode Standard Annex #29 grapheme clusters can contain
-// multiple codepoints. `zglfw.zig`, CharFn delivers one u32 per callback, but
-// that backend shape does not narrow the cross-backend text contract.
-// TextChunk is the largest payload, so growing `bytes` widens every Event.
+// multiple codepoints. Every Event is as wide as its largest payload, which the
+// assert below `Event` pins, so growing `bytes` may widen all of them.
 pub const TextChunk = struct {
     transaction: u32,
     kind: TextKind,
@@ -204,6 +203,14 @@ pub const MouseButtonEvent = struct {
 pub const ScrollPhase = enum(u8) { begin, update, end };
 pub const ScrollSource = enum(u8) { wheel, finger, continuous, unknown };
 
+// Both deltas are signed the opposite way to the cursor's coordinates: positive
+// y is towards the top of the window and positive x towards its left.
+// `pixel_delta` is in logical units and `line_delta` in wheel steps.
+//
+// Which way a wheel or two fingers have to move to produce a positive value is
+// the user's setting and not this contract's. A compositor applies natural
+// scrolling before the value is sent (wayland.xml,
+// wl_pointer.axis_relative_direction).
 pub const ScrollEvent = struct {
     device: DeviceId = .primary,
     pixel_delta: [2]f32 = .{ 0, 0 },
@@ -246,9 +253,9 @@ pub const Event = struct {
 };
 
 comptime {
-    // Measured. TextChunk is the largest payload at 24 bytes, making
-    // Payload 32 bytes and Event 48 bytes, so every 1024 events the queue
-    // holds cost 48 KiB. This assert ensures that any payload growth is
-    // acknowledged where that cost is paid.
+    // Measured on x86_64-linux. SurfaceMetrics is the largest payload at 28
+    // bytes and TextChunk next at 24, making Payload 32 bytes and Event 48
+    // bytes, so every 1024 events the queue holds cost 48 KiB. This assert
+    // ensures that any payload growth is acknowledged where that cost is paid.
     std.debug.assert(@sizeOf(Event) == 48);
 }

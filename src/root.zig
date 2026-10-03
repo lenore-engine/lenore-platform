@@ -17,10 +17,13 @@ pub const findSystemFont = @import("system_font.zig").find;
 pub const Platform = window.Platform;
 pub const Window = window.Window;
 pub const NativeHandles = window.NativeHandles;
+pub const NativeDisplay = window.NativeDisplay;
+pub const WindowOptions = window.WindowOptions;
 pub const CursorMode = window.CursorMode;
 pub const InitError = window.InitError;
 pub const CreateWindowError = window.CreateWindowError;
 pub const CursorModeError = window.CursorModeError;
+pub const ClipboardError = window.ClipboardError;
 
 pub const Input = input.Input;
 pub const InputState = @import("input_state.zig").InputState;

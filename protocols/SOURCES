@@ -1,0 +1,28 @@
+Vendored Wayland protocol definitions.
+
+Copied verbatim from the upstream packages, kept here so the module builds from
+its own directory without a system wayland-protocols, and so the version the
+bindings were generated from is pinned rather than whatever the build host has.
+Each file keeps its own upstream copyright header.
+
+  wayland.xml                          wayland 1.26.0        /usr/share/wayland/
+  xdg-shell.xml                        wayland-protocols 1.49  stable/xdg-shell/
+  viewporter.xml                       wayland-protocols 1.49  stable/viewporter/
+  cursor-shape-v1.xml                  wayland-protocols 1.49  staging/cursor-shape/
+  fractional-scale-v1.xml              wayland-protocols 1.49  staging/fractional-scale/
+  xdg-decoration-unstable-v1.xml       wayland-protocols 1.49  unstable/xdg-decoration/
+  pointer-constraints-unstable-v1.xml  wayland-protocols 1.49  unstable/pointer-constraints/
+  relative-pointer-unstable-v1.xml     wayland-protocols 1.49  unstable/relative-pointer/
+
+Re-check against the host packages with:
+
+  pkg-config --modversion wayland-client wayland-protocols
+  md5sum protocols/*.xml
+  md5sum /usr/share/wayland/wayland.xml \
+         /usr/share/wayland-protocols/stable/{xdg-shell/xdg-shell,viewporter/viewporter}.xml \
+         /usr/share/wayland-protocols/staging/{cursor-shape/cursor-shape-v1,fractional-scale/fractional-scale-v1}.xml \
+         /usr/share/wayland-protocols/unstable/{xdg-decoration/xdg-decoration-unstable-v1,pointer-constraints/pointer-constraints-unstable-v1,relative-pointer/relative-pointer-unstable-v1}.xml
+
+wayland.xml is vendored for its interface definitions only. Its tables are
+already compiled into libwayland-client, so the generator emits `extern`
+declarations for the core interfaces and a table for nothing in that file.

@@ -1,30 +1,72 @@
 const std = @import("std");
 
+// Inputs to the protocol generator, in the order the bindings are generated in.
+// Listed rather than globbed: adding one is a decision, and the order decides
+// nothing but keeps a regeneration from producing a diff.
+const protocol_inputs = [_][]const u8{
+    "wayland.xml",
+    "xdg-shell.xml",
+    "viewporter.xml",
+    "cursor-shape-v1.xml",
+    "fractional-scale-v1.xml",
+    "xdg-decoration-unstable-v1.xml",
+    "pointer-constraints-unstable-v1.xml",
+    "relative-pointer-unstable-v1.xml",
+};
+
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    // glfw is the only implemented backend, so this defaults on. Turning it off
-    // selects the native backend for the target OS, which is an empty file
-    // today and fails to compile by design.
-    const force_glfw = b.option(bool, "force-glfw", "Use the glfw backend instead of the native one") orelse true;
-    const build_options = b.addOptions();
-    build_options.addOption(bool, "force_glfw", force_glfw);
-
-    // Temporary zglfw module. X11 is off by decision, not by default: it is not
-    // a supported window system, so linking it would only add a path nothing
-    // can reach.
-    const zglfw = b.dependency("zglfw", .{ .target = target, .optimize = optimize, .x11 = false, .wayland = true });
     const mod = b.addModule("lenore-platform", .{
         .root_source_file = b.path("src/root.zig"),
-        .imports = &.{
-            .{ .name = "zglfw", .module = zglfw.module("root") },
-            .{ .name = "build_options", .module = build_options.createModule() },
-        },
         .target = target,
         .optimize = optimize,
     });
-    b.installArtifact(zglfw.artifact("glfw"));
+
+    // The Wayland backend talks to libwayland-client rather than reimplementing
+    // the wire protocol, because it cannot do otherwise: the wl_display handed
+    // to vkCreateWaylandSurfaceKHR has to be one the driver can drive, and the
+    // RADV build on this host lists libwayland-client.so.0 in its own
+    // DT_NEEDED. Building it needs the library's development symlink, from
+    // `wayland-devel` on Chimera.
+    if (target.result.os.tag == .linux) {
+        mod.link_libc = true;
+        mod.linkSystemLibrary("wayland-client", .{});
+        // The compositor sends a keymap and a modifier mask, and the client is
+        // what turns a keycode into a character. xkbcommon is that rule set.
+        mod.linkSystemLibrary("xkbcommon", .{});
+    }
+
+    // Regenerates the Zig protocol bindings from the vendored XML. Not part of
+    // an ordinary build: the output is committed, so a build compiles ordinary
+    // files and an editor resolves them. Run it after revendoring a protocol.
+    //
+    // The tables it writes are diffed against wayland-scanner's by
+    // tools/verify-tables.py, which is the check that the signatures and type
+    // arrays are right; a wrong one corrupts libwayland instead of failing to
+    // compile.
+    const scanner = b.addExecutable(.{
+        .name = "wayland-scanner-zig",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/scanner.zig"),
+            .target = b.graph.host,
+            .optimize = .Debug,
+        }),
+    });
+    const scan = b.addRunArtifact(scanner);
+    scan.setCwd(b.path("."));
+    scan.has_side_effects = true;
+    scan.addArg("src/backend/linux/wl/protocol");
+    for (protocol_inputs) |name| scan.addArg(b.pathJoin(&.{ "protocols", name }));
+
+    const format = b.addSystemCommand(&.{ b.graph.zig_exe, "fmt", "src/backend/linux/wl/protocol" });
+    format.setCwd(b.path("."));
+    format.has_side_effects = true;
+    format.step.dependOn(&scan.step);
+
+    const protocols_step = b.step("protocols", "Regenerate the Wayland protocol bindings");
+    protocols_step.dependOn(&format.step);
 
     const unit_tests = b.addTest(.{
         .root_module = b.createModule(.{
@@ -41,21 +83,16 @@ pub fn build(b: *std.Build) void {
     // The suite above imports lenore-platform rather than being it, so a `test`
     // written beside the code in src/ would never run and would stay green
     // forever. This second binary is that module.
-    mod.linkLibrary(zglfw.artifact("glfw"));
     const module_tests = b.addTest(.{ .root_module = mod });
     test_step.dependOn(&b.addRunArtifact(module_tests).step);
-
-    // Examples demonstrate this module on its own, with no umbrella and no other
-    // module. They are also what actually compiles the backend: the test root
-    // reaches only what a test calls, and nothing calls Platform.init.
 }
 
-/// Sorted names of the `.zig` files directly in `dir_path`, or nothing if the
-/// directory does not exist.
-///
-/// Directory order is not stable across filesystems, and the generated test root
-/// below is part of a cache key, so the order is pinned here rather than left to
-/// the reader of either caller.
+// Sorted names of the `.zig` files directly in `dir_path`, or nothing if the
+// directory does not exist.
+//
+// Directory order is not stable across filesystems, and the generated test root
+// below is part of a cache key, so the order is pinned here rather than left to
+// the reader of either caller.
 fn zigFilesIn(b: *std.Build, dir_path: []const u8) [][]const u8 {
     var names: std.ArrayList([]const u8) = .empty;
 
@@ -86,14 +123,14 @@ fn zigFilesIn(b: *std.Build, dir_path: []const u8) [][]const u8 {
     return names.items;
 }
 
-/// Generates the test root by listing `dir_path`, so a new test file is picked
-/// up by existing.
-///
-/// This cannot be done at comptime: `@import` takes a string literal and there
-/// is no filesystem at comptime. The build script is the earliest place that can
-/// see the directory, so the root is generated here rather than maintained by
-/// hand. Zig analyses lazily, and a test file nobody imports is silently not
-/// run, so a forgotten registration is a suite that goes green without it.
+// Generates the test root by listing `dir_path`, so a new test file is picked
+// up by existing.
+//
+// This cannot be done at comptime: `@import` takes a string literal and there
+// is no filesystem at comptime. The build script is the earliest place that can
+// see the directory, so the root is generated here rather than maintained by
+// hand. Zig analyses lazily, and a test file nobody imports is silently not
+// run, so a forgotten registration is a suite that goes green without it.
 fn testRoot(b: *std.Build, dir_path: []const u8) std.Build.LazyPath {
     var source: std.ArrayList(u8) = .empty;
     source.appendSlice(b.allocator, "// Generated by build.zig from the test directory. Do not edit.\ntest {\n") catch @panic("OOM");
