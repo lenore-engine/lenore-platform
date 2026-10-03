@@ -61,6 +61,17 @@ test "sleepUntil uses an absolute deadline" {
     try clock.sleepUntil(1000);
     try testing.expectEqual(null, fake.last_timeout);
 }
+test "a deadline is in the clock's own timebase" {
+    var fake: FakeIo = .init(10_000);
+    const clock: platform.Clock = .init(fake.io());
+    fake.now_ns = 10_400;
+
+    // Rebased on the origin and not on the present, so the same number names
+    // the same instant whenever it is asked.
+    const at = clock.deadline(1000);
+    try testing.expectEqual(std.Io.Clock.awake, at.clock);
+    try testing.expectEqual(11_000, at.raw.nanoseconds);
+}
 test "host clock is monotonic" {
     var threaded: std.Io.Threaded = .init(testing.allocator, .{});
     defer threaded.deinit();

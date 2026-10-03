@@ -35,10 +35,16 @@ pub const Clock = struct {
         // A missed deadline is not an error. Measured locally on Linux: the
         // clock check costs about 22 ns against 13 us for an already-expired wait.
         if (self.now() >= deadline_ns) return;
-        const deadline: std.Io.Clock.Timestamp = .{
+        return self.deadline(deadline_ns).wait(self.io);
+    }
+
+    // `at_ns`, in the timebase of `now()`, as the timestamp an `Io` wait takes.
+    // `sleepUntil` waits on time alone. A thread that waits for something else
+    // with time as the bound, such as `Io.Event.waitTimeout`, passes this.
+    pub fn deadline(self: Clock, at_ns: u64) std.Io.Clock.Timestamp {
+        return .{
             .clock = source,
-            .raw = self.origin.addDuration(.{ .nanoseconds = deadline_ns }),
+            .raw = self.origin.addDuration(.{ .nanoseconds = at_ns }),
         };
-        return deadline.wait(self.io);
     }
 };
