@@ -25,6 +25,7 @@ test "the window-facing surface is compiled" {
     _ = &platform.Window.captureInput;
     _ = &platform.Window.releaseInput;
     _ = &platform.Window.setCursorMode;
+    _ = &platform.Window.setFullscreen;
     _ = &platform.Window.clipboardText;
     _ = &platform.Window.setClipboardText;
 }

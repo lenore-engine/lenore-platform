@@ -528,7 +528,7 @@ pub const Seat = struct {
     ) void {
         input.submit(.{ .key = .{
             .physical = physical,
-            .logical = keycodes.namedKey(physical),
+            .logical = .of(physical),
             .action = action,
             .modifiers = self.modifiers,
         } });

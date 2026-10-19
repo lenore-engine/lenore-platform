@@ -12,10 +12,11 @@ const testing = std.testing;
 // merely came back.
 fn check(io: std.Io, found: platform.SystemFont) !void {
     try testing.expect(found.path.len > 0);
-    // fontconfig answers with the file it found, and it finds files by walking
-    // directories it was configured with. A relative path would mean a match
-    // against a directory this process does not know.
-    try testing.expectEqual(@as(u8, '/'), found.path[0]);
+    // The host answers with the file it found, from directories it was
+    // configured with: fontconfig's font directories, the Windows font folders.
+    // A relative path would mean a match against a directory this process does
+    // not know.
+    try testing.expect(std.fs.path.isAbsolute(found.path));
     try testing.expectEqual(@as(u8, 0), found.path.ptr[found.path.len]);
 
     var file = try std.Io.Dir.cwd().openFile(io, found.path, .{});

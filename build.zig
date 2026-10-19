@@ -38,6 +38,17 @@ pub fn build(b: *std.Build) void {
         mod.linkSystemLibrary("xkbcommon", .{});
     }
 
+    // The Win32 backend calls user32 for windows, messages and the clipboard,
+    // and kernel32 for its wait timer and clipboard memory; the system font
+    // lookup calls dwrite. Named here as well as on each extern declaration so
+    // the dependency is a build fact a reader finds without opening the source.
+    // None needs libc: Zig links them from the import libraries it ships.
+    if (target.result.os.tag == .windows) {
+        mod.linkSystemLibrary("user32", .{});
+        mod.linkSystemLibrary("kernel32", .{});
+        mod.linkSystemLibrary("dwrite", .{});
+    }
+
     // Regenerates the Zig protocol bindings from the vendored XML. Not part of
     // an ordinary build: the output is committed, so a build compiles ordinary
     // files and an editor resolves them. Run it after revendoring a protocol.

@@ -499,6 +499,15 @@ pub const Window = struct {
         return seat.setCursorMode(self, mode);
     }
 
+    // Null output: the compositor picks one, which in practice is the one the
+    // window is on (xdg-shell.xml, xdg_toplevel.set_fullscreen). The answer is
+    // a configure with the output's size, which reaches the caller as
+    // SurfaceMetrics through the ordinary path; leaving fullscreen is answered
+    // the same way, and a zero size there falls back to the preferred one.
+    pub fn setFullscreen(self: *Window, fullscreen: bool) void {
+        if (fullscreen) self.toplevel.setFullscreen(null) else self.toplevel.unsetFullscreen();
+    }
+
     pub fn clipboardText(self: *Window, buffer: []u8) window.ClipboardError![]const u8 {
         const seat = if (self.connection.seat) |*value| value else return error.ClipboardUnavailable;
         return seat.clipboardText(buffer);

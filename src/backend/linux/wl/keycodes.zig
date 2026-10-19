@@ -137,29 +137,6 @@ pub fn physicalKey(code: u32) events.PhysicalKey {
     };
 }
 
-// The layout-independent identity of a non-text key. Printable keys carry no
-// named identity: what they insert arrives as a TextChunk, which is the only
-// thing that knows the layout.
-pub fn namedKey(key: events.PhysicalKey) events.NamedKey {
-    return switch (key) {
-        .escape => .escape,
-        .enter, .numpad_enter => .enter,
-        .tab => .tab,
-        .backspace => .backspace,
-        .insert => .insert,
-        .delete => .delete,
-        .arrow_right => .arrow_right,
-        .arrow_left => .arrow_left,
-        .arrow_down => .arrow_down,
-        .arrow_up => .arrow_up,
-        .page_up => .page_up,
-        .page_down => .page_down,
-        .home => .home,
-        .end => .end,
-        else => .unidentified,
-    };
-}
-
 // Evdev button codes, from the BTN_ block of the same header.
 //
 // A mouse reports two pairs of side buttons and a given mouse uses one pair or

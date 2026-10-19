@@ -6,5 +6,6 @@ const builtin = @import("builtin");
 // that answers "unavailable".
 pub const active = switch (builtin.target.os.tag) {
     .linux => @import("linux/Wayland.zig"),
+    .windows => @import("windows/Win32.zig"),
     else => @compileError("lenore-platform has no backend for " ++ @tagName(builtin.target.os.tag)),
 };

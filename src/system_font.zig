@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
 // Which font the host prefers, asked for without naming one.
 //
@@ -138,7 +139,17 @@ pub const Found = struct {
 //
 // Costs a configuration load, which reads the font caches. Milliseconds, and it
 // is a startup call.
+//
+// Chosen at comptime: on Windows the same question goes to DirectWrite, and
+// fontconfig is never analysed there.
 pub fn find(buffer: []u8, request: Request) Error!?Found {
+    return switch (builtin.target.os.tag) {
+        .windows => @import("system_font/directwrite.zig").find(buffer, request),
+        else => findFontconfig(buffer, request),
+    };
+}
+
+fn findFontconfig(buffer: []u8, request: Request) Error!?Found {
     var library = std.DynLib.open(library_name) catch return null;
     defer library.close();
 

@@ -11,6 +11,9 @@ const Input = @import("input.zig").Input;
 // as well would put that decision in two places.
 pub const NativeHandles = union(enum) {
     wayland: struct { display: *anyopaque, surface: *anyopaque },
+    // The module the window class was registered from and the window itself,
+    // which are the two handles VkWin32SurfaceCreateInfoKHR names.
+    win32: struct { hinstance: *anyopaque, hwnd: *anyopaque },
 };
 
 // The display connection alone, which exists before the first window does.
@@ -27,6 +30,11 @@ pub const NativeHandles = union(enum) {
 // values arriving separately can, and nothing in the types would say so.
 pub const NativeDisplay = union(enum) {
     wayland: struct { display: *anyopaque },
+    // Empty because the command takes nothing else:
+    // `vkGetPhysicalDeviceWin32PresentationSupportKHR` is a physical device and
+    // a queue family (vk.xml, registry 1.4.350). A Win32 process has one
+    // desktop session and no connection object to name.
+    win32: struct {},
 };
 
 // What a window is opened with.
@@ -141,6 +149,16 @@ pub const Window = struct {
     // Pointer ownership is the caller's choice, never the platform's.
     pub fn setCursorMode(self: *Window, mode: CursorMode) CursorModeError!void {
         return self.impl.setCursorMode(mode);
+    }
+
+    // Asks for the window to cover its whole output, or to go back to what it
+    // was. A request, like the preferred size: the new size arrives as a
+    // SurfaceMetrics event, and a compositor is free to refuse
+    // (xdg-shell.xml, xdg_toplevel.set_fullscreen). The window keeps its
+    // surface and its swapchain is recreated for the new extent, so this is
+    // never an exclusive mode change of the display.
+    pub fn setFullscreen(self: *Window, fullscreen: bool) void {
+        self.impl.setFullscreen(fullscreen);
     }
 
     // The clipboard's text, copied into `buffer`.

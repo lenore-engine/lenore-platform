@@ -141,6 +141,31 @@ pub const NamedKey = enum(u8) {
     page_down,
     home,
     end,
+
+    // The layout-independent identity of a non-text key. Printable keys carry
+    // no named identity: what they insert arrives as a TextChunk, which is the
+    // only thing that knows the layout. Here rather than in a backend because
+    // the mapping is between two of this contract's own enums, and every
+    // backend reports the same one.
+    pub fn of(key: PhysicalKey) NamedKey {
+        return switch (key) {
+            .escape => .escape,
+            .enter, .numpad_enter => .enter,
+            .tab => .tab,
+            .backspace => .backspace,
+            .insert => .insert,
+            .delete => .delete,
+            .arrow_right => .arrow_right,
+            .arrow_left => .arrow_left,
+            .arrow_down => .arrow_down,
+            .arrow_up => .arrow_up,
+            .page_up => .page_up,
+            .page_down => .page_down,
+            .home => .home,
+            .end => .end,
+            else => .unidentified,
+        };
+    }
 };
 
 pub const DeviceId = enum(u16) { primary = 0, _ };
